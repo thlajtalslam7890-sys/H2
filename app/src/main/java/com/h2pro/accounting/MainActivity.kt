@@ -1,118 +1,32 @@
 package com.h2pro.accounting
 
-import android.content.Context
+import android.content.ContentValues
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.h2pro.accounting.data.H2Database
 
 class MainActivity : AppCompatActivity() {
-    private val prefs by lazy { getSharedPreferences("h2pro", Context.MODE_PRIVATE) }
+    private val db by lazy { H2Database(this).writableDatabase }
     private val pad = 24
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        showLogin()
-    }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); showLogin() }
 
-    private fun base(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        gravity = Gravity.CENTER
-        setPadding(pad, pad, pad, pad)
-        layoutDirection = LinearLayout.LAYOUT_DIRECTION_RTL
-    }
-
-    private fun field(hint: String, number: Boolean = false): EditText = EditText(this).apply {
-        this.hint = hint
-        inputType = if (number) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT
-        setPadding(16, 12, 16, 12)
-    }
+    private fun base() = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; gravity=Gravity.CENTER; setPadding(pad,pad,pad,pad); layoutDirection=LinearLayout.LAYOUT_DIRECTION_RTL }
+    private fun field(h: String, number:Boolean=false) = EditText(this).apply { hint=h; inputType=if(number) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT; setPadding(16,12,16,12) }
+    private fun title(t:String) = TextView(this).apply { text=t; textSize=25f; gravity=Gravity.CENTER; setPadding(0,0,0,24) }
 
     private fun showLogin() {
-        val root = base()
-        val title = TextView(this).apply {
-            text = "H2 Pro\nالنظام المحاسبي"
-            textSize = 28f
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 32)
-        }
-        val year = field("السنة المالية", true)
-        val user = field("رقم المستخدم", true)
-        val password = field("كلمة المرور").apply { inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
-        val login = Button(this).apply { text = "دخول" }
-        val cancel = Button(this).apply { text = "إلغاء" }
-        root.addView(title)
-        root.addView(year)
-        root.addView(user)
-        root.addView(password)
-        root.addView(login)
-        root.addView(cancel)
-        login.setOnClickListener {
-            if (year.text.isNullOrBlank() || user.text.isNullOrBlank() || password.text.isNullOrBlank()) {
-                Toast.makeText(this, "أكمل بيانات الدخول", Toast.LENGTH_SHORT).show()
-            } else showDashboard()
-        }
-        cancel.setOnClickListener { finish() }
-        setContentView(root)
+        val r=base(); r.addView(title("H2 Pro\nالنظام المحاسبي")); val y=field("السنة المالية",true); val u=field("رقم المستخدم",true); val p=field("كلمة المرور").apply{inputType=129}; r.addView(y);r.addView(u);r.addView(p)
+        r.addView(Button(this).apply{text="دخول";setOnClickListener{if(y.text.isNullOrBlank()||u.text.isNullOrBlank()||p.text.isNullOrBlank()) Toast.makeText(this@MainActivity,"أكمل بيانات الدخول",Toast.LENGTH_SHORT).show() else showDashboard()}})
+        r.addView(Button(this).apply{text="إلغاء";setOnClickListener{finish()}});setContentView(r)
     }
-
-    private fun showDashboard() {
-        val root = base()
-        root.addView(TextView(this).apply {
-            text = "H2 Pro\nلوحة التحكم"
-            textSize = 26f
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 24)
-        })
-        val buttons = listOf(
-            "تهيئة النظام" to { showSetup() },
-            "دليل الحسابات" to { info("دليل الحسابات") },
-            "الأصناف والمخزون" to { info("الأصناف والمخزون") },
-            "العملاء والموردون" to { info("العملاء والموردون") },
-            "المبيعات والمشتريات" to { info("المبيعات والمشتريات") },
-            "القيود والتقارير" to { info("القيود والتقارير") },
-            "المستخدمون والإعدادات" to { info("المستخدمون والإعدادات") }
-        )
-        buttons.forEach { (label, action) ->
-            root.addView(Button(this).apply { text = label; setOnClickListener { action() } })
-        }
-        setContentView(root)
-    }
-
-    private fun showSetup() {
-        val root = base()
-        root.addView(TextView(this).apply { text = "تهيئة النظام"; textSize = 26f; gravity = Gravity.CENTER; setPadding(0,0,0,24) })
-        root.addView(Button(this).apply { text = "بيانات السنة المالية"; setOnClickListener { financialYear() } })
-        root.addView(Button(this).apply { text = "بيانات الشركة"; setOnClickListener { companyData() } })
-        root.addView(Button(this).apply { text = "المناطق"; setOnClickListener { info("المناطق") } })
-        root.addView(Button(this).apply { text = "رجوع"; setOnClickListener { showDashboard() } })
-        setContentView(root)
-    }
-
-    private fun financialYear() {
-        val root = base()
-        root.addView(TextView(this).apply { text = "بيانات السنة المالية"; textSize = 24f; gravity = Gravity.CENTER })
-        val year = field("السنة المالية", true)
-        val start = field("تاريخ البداية")
-        val end = field("تاريخ النهاية")
-        year.setText(prefs.getString("year", "")); start.setText(prefs.getString("start", "")); end.setText(prefs.getString("end", ""))
-        root.addView(year); root.addView(start); root.addView(end)
-        root.addView(Button(this).apply { text = "حفظ"; setOnClickListener { prefs.edit().putString("year",year.text.toString()).putString("start",start.text.toString()).putString("end",end.text.toString()).apply(); Toast.makeText(this@MainActivity,"تم حفظ السنة المالية",Toast.LENGTH_SHORT).show() } })
-        root.addView(Button(this).apply { text = "رجوع"; setOnClickListener { showSetup() } })
-        setContentView(root)
-    }
-
-    private fun companyData() {
-        val root = base()
-        root.addView(TextView(this).apply { text = "بيانات الشركة"; textSize = 24f; gravity = Gravity.CENTER })
-        val name = field("اسم الشركة"); val phone = field("رقم الهاتف"); val address = field("العنوان")
-        name.setText(prefs.getString("company_name", "")); phone.setText(prefs.getString("company_phone", "")); address.setText(prefs.getString("company_address", ""))
-        root.addView(name); root.addView(phone); root.addView(address)
-        root.addView(Button(this).apply { text = "حفظ"; setOnClickListener { prefs.edit().putString("company_name",name.text.toString()).putString("company_phone",phone.text.toString()).putString("company_address",address.text.toString()).apply(); Toast.makeText(this@MainActivity,"تم حفظ بيانات الشركة",Toast.LENGTH_SHORT).show() } })
-        root.addView(Button(this).apply { text = "رجوع"; setOnClickListener { showSetup() } })
-        setContentView(root)
-    }
-
-    private fun info(title: String) = Toast.makeText(this, "سيتم تطوير شاشة $title في المرحلة التالية", Toast.LENGTH_SHORT).show()
+    private fun showDashboard(){val r=base();r.addView(title("H2 Pro\nلوحة التحكم")); listOf("تهيئة النظام" to ::showSetup,"دليل الحسابات" to ::accounts,"الأصناف والمخزون" to ::coming,"العملاء والموردون" to ::coming,"المبيعات والمشتريات" to ::coming,"القيود والتقارير" to ::coming,"المستخدمون والإعدادات" to ::coming).forEach{(s,a)->r.addView(Button(this).apply{text=s;setOnClickListener{a()}})};setContentView(r)}
+    private fun showSetup(){val r=base();r.addView(title("تهيئة النظام"));r.addView(Button(this).apply{text="بيانات السنة المالية";setOnClickListener{financialYear()}});r.addView(Button(this).apply{text="بيانات الشركة";setOnClickListener{companyData()}});r.addView(Button(this).apply{text="المناطق";setOnClickListener{coming("المناطق")}});r.addView(Button(this).apply{text="رجوع";setOnClickListener{showDashboard()}});setContentView(r)}
+    private fun financialYear(){val r=base();r.addView(title("بيانات السنة المالية"));val y=field("السنة المالية",true);val s=field("تاريخ البداية");val e=field("تاريخ النهاية");r.addView(y);r.addView(s);r.addView(e);r.addView(Button(this).apply{text="حفظ";setOnClickListener{if(y.text.isNullOrBlank())return@setOnClickListener;val v=ContentValues().apply{put("year",y.text.toString().toInt());put("start_date",s.text.toString());put("end_date",e.text.toString())};db.insert("financial_year",null,v);Toast.makeText(this@MainActivity,"تم حفظ السنة المالية",Toast.LENGTH_SHORT).show()}});r.addView(Button(this).apply{text="رجوع";setOnClickListener{showSetup()}});setContentView(r)}
+    private fun companyData(){val r=base();r.addView(title("بيانات الشركة"));val n=field("اسم الشركة");val p=field("رقم الهاتف");val a=field("العنوان");r.addView(n);r.addView(p);r.addView(a);r.addView(Button(this).apply{text="حفظ";setOnClickListener{if(n.text.isNullOrBlank())return@setOnClickListener;val v=ContentValues().apply{put("name",n.text.toString());put("phone",p.text.toString());put("address",a.text.toString())};db.insert("company",null,v);Toast.makeText(this@MainActivity,"تم حفظ بيانات الشركة",Toast.LENGTH_SHORT).show()}});r.addView(Button(this).apply{text="رجوع";setOnClickListener{showSetup()}});setContentView(r)}
+    private fun accounts(){val r=base();r.addView(title("دليل الحسابات"));val code=field("رمز الحساب");val name=field("اسم الحساب");val type=field("نوع الحساب");r.addView(code);r.addView(name);r.addView(type);r.addView(Button(this).apply{text="إضافة حساب";setOnClickListener{if(code.text.isNullOrBlank()||name.text.isNullOrBlank())return@setOnClickListener;val v=ContentValues().apply{put("code",code.text.toString());put("name",name.text.toString());put("type",type.text.toString().ifBlank{"عام"});put("level",1)};db.insert("accounts",null,v);Toast.makeText(this@MainActivity,"تمت إضافة الحساب",Toast.LENGTH_SHORT).show()}});r.addView(Button(this).apply{text="رجوع";setOnClickListener{showDashboard()}});setContentView(r)}
+    private fun coming(){coming("هذه الشاشة")}; private fun coming(s:String)=Toast.makeText(this,"سيتم تطوير $s لاحقًا",Toast.LENGTH_SHORT).show()
 }
